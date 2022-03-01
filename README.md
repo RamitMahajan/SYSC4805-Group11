@@ -6,6 +6,6 @@ In this project, we are going to build a snow plowing that will consist of a mov
 Tasks completed until Progress Report : 
 | Member | Tasks Completed |
 | ------ | --------------- |
-| Ramit Mahajan | Project Proposal, Robot Design, Snowplow Implementation Approval, Chasis Test, Github Implementation, Github contribution |
 | James Runtas | Project Proposal, Plow Design Approval, Snowplow Implementation, Plow Test Approval, Github Contribution |
+| Ramit Mahajan | Project Proposal, Robot Design, Snowplow Implementation Approval, Chasis Test, Github Implementation, Github contribution |
 | Dominique Giguere Samson | Project Proposal, Robot Design Approval, Plow Design, Chasis Test Approval, Plow Test, Github Contribution |
