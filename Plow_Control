@@ -1,0 +1,84 @@
+function sysCall_init()
+    -- do some initialization here
+    RightWheel = sim.getObjectHandle("RightWheelMotor")
+    LeftWheel = sim.getObjectHandle("LeftWheelMotor")
+    
+    RightPlow = sim.getObjectHandle("RightPlowMotor")
+    LeftPlow = sim.getObjectHandle("LeftPlowMotor")
+    FrontPlow = sim.getObjectHandle("FrontPlowMotor")
+    
+    proxSens={}
+    for i=1,6,1 do
+        proxSens[i]=sim.getObjectHandle('proxSensor'..i)
+    end
+    
+    FrontPlowAngle = 0
+    LeftPlowAngle = 10
+    RightPlowAngle = 10
+    RightWheelVelocity = 0.1
+    LeftWheelVelocity =0.1
+end
+
+function sysCall_actuation()
+        noDetectionDistance = 0
+        proxSensDist={noDetectionDistance,noDetectionDistance,noDetectionDistance,noDetectionDistance,noDetectionDistance,noDetectionDistance}
+        for i=1,6,1 do
+            res,dist=sim.readProximitySensor(proxSens[i])
+            if res>0 then
+                proxSensDist[i]=dist
+            end
+        end
+        --Right Plow
+        --Check right side for obstacles
+        if (proxSensDist[1] + proxSensDist[4] == 0) then
+            RightPlowAngle = 75
+            RightObstacle = false
+        else
+            RightPlowAngle = 10
+            RightObstacle = true
+        end
+        
+        --Left Plow
+        --Check left side for obstacles
+        if (proxSensDist[2] + proxSensDist[5] == 0) then
+            LeftPlowAngle = 75
+            LeftObstacle = false
+        else
+            LeftPlowAngle = 10
+            LeftObstacle = true
+        end
+        
+        --Front Plow
+        --Obstacle on the right, push snow away
+        if (RightObstacle and not LeftObstacle) then
+            FrontPlowAngle = 12
+        --Obstacle on the left, push snow away
+        elseif (not RightObstacle and LeftObstacle) then
+            FrontPlowAngle = -12
+        --No obstacles, or obstacles on both sides, keep plow flat
+        else
+            FrontPlowAngle = 0
+        end
+        
+        
+        -- Side plow angles: 0 - Parked, 10 - Active, 75 - Maximum
+        sim.setJointTargetPosition(RightPlow, RightPlowAngle *math.pi/180)
+        sim.setJointTargetPosition(LeftPlow, LeftPlowAngle *math.pi/180)
+    
+        -- Front plow angles: -12 - Right limit, 0 - Middle, 12 - Left limit
+        sim.setJointTargetPosition(FrontPlow, FrontPlowAngle *math.pi/180)
+    
+        -- Set Robot in motion
+        sim.setJointTargetVelocity(RightWheel, RightWheelVelocity)
+        sim.setJointTargetVelocity(LeftWheel, LeftWheelVelocity)
+end  
+
+function sysCall_sensing()
+    -- put your sensing code here
+end
+
+function sysCall_cleanup()
+    -- do some clean-up here
+end
+
+-- See the user manual or the available code snippets for additional callback functions and details
