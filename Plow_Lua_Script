@@ -1,0 +1,197 @@
+function sysCall_init()
+    -- do some initialization here
+    RightWheel = sim.getObjectHandle("RightWheelMotor")
+    LeftWheel = sim.getObjectHandle("LeftWheelMotor")
+
+    RightPlow = sim.getObjectHandle("RightPlowMotor")
+    LeftPlow = sim.getObjectHandle("LeftPlowMotor")
+    
+    visionSensor={-1,-1,-1}
+    visionSensor[1]=sim.getObjectHandle("LeftSensor")
+    visionSensor[2]=sim.getObjectHandle("MiddleSensor")
+    visionSensor[3]=sim.getObjectHandle("RightSensor")
+
+    proxSens={}
+    for i=1,6,1 do
+        proxSens[i]=sim.getObjectHandle('proxSensor'..i)
+    end
+
+    -- Initialize vehicle parameters
+    radius = 0.2
+    FrontPlowAngle = 0
+    LeftPlowAngle = 10
+    RightPlowAngle = 10
+    RightWheelVelocity = 2/radius
+    LeftWheelVelocity = 2/radius
+
+
+    maxVel=120*math.pi/180
+    
+    
+
+    objHandle=sim.getObjectHandle("SnowPlow")
+
+    -- Initialize control variables
+    RightObstacle = false
+    LeftObstacle = false
+    FrontObstacle = false
+    BackObstacle = false
+
+end
+
+
+
+function sysCall_actuation()
+    -- Set parameters to default
+    LeftPlowAngle = 75
+    RightPlowAngle = 75
+    RightWheelVelocity = 3/radius
+    LeftWheelVelocity =3/radius
+    
+    -- Poll all vision sensors for perimeter detection
+    sensorReading={false, false, false}
+    for i = 1,3,1 do
+        result, data= sim.readVisionSensor(visionSensor[i])
+        if (result >=0) then
+            sensorReading[i]=(data[11]<0.3)
+        end
+    end
+    
+    -- Poll all proximity sensors
+    noDetectionDistance=0
+    proxSensDist={noDetectionDistance,noDetectionDistance,noDetectionDistance,noDetectionDistance,noDetectionDistance,noDetectionDistance}
+    for i=1,6,1 do
+        res,dist=sim.readProximitySensor(proxSens[i])
+        if res>0 then
+            proxSensDist[i]=dist
+        end
+    end
+    --Check right side for obstacles
+    if (proxSensDist[1] + proxSensDist[4] > 0) then
+        RightObstacle = true
+    else
+        RightObstacle = false
+    end
+    --Check left side for obstacles
+    if (proxSensDist[2] + proxSensDist[5] > 0) then
+        LeftObstacle = true
+    else
+        LeftObstacle = false
+    end
+    --Check front for obstacles
+    if proxSensDist[3] > 0 then
+        FrontObstacle = true
+    else
+        FrontObstacle = false
+    end
+    --Check back for obstacles
+    if proxSensDist[6] > 0 then
+        BackObstacle = true
+    else
+        BackObstacle = false
+    end
+    
+    --Plow Logic
+    if (RightObstacle and LeftObstacle) then
+        -- Obstacle on both sides
+    elseif (proxSensDist[4] > 0) then
+        -- Obstacle only on right side
+        RightPlowAngle = .9*(proxSensDist[4]*200)
+    elseif (proxSensDist[5] > 0) then
+        -- Obstacle only on left side
+        LeftPlowAngle = .9*(proxSensDist[5]*200)
+    else
+        -- no Obstacle
+    end
+
+    if LeftObstacle then            -- Obstacle on left
+        --Turn right
+        LeftWheelVelocity = 2/radius
+        RightWheelVelocity = 0.1/radius
+        if sensorReading[3] then    -- Obstacle on the left and perimeter on the Right
+            --Turn right
+            LeftWheelVelocity = 0.1/radius
+            RightWheelVelocity = 2/radius
+        end
+        if RightObstacle then       -- Obstacles on both sides
+            --Turn left
+            LeftWheelVelocity = -2/radius
+            RightWheelVelocity = 2/radius
+        end
+    elseif RightObstacle then       -- Obstacle on the right
+        --Turn left
+        LeftWheelVelocity = 0.1/radius
+        RightWheelVelocity = 2/radius
+        if sensorReading[1] then    -- Obstacle on the right and perimeter on the Left
+            --Turn left
+            RightWheelVelocity = 2/radius
+            LeftWheelVelcity = 0.1/radius
+        end
+    elseif FrontObstacle then       -- Obstacle in front
+        --Turn Right
+        RightWheelVelocity = -2/radius
+        LeftWheelVelocity = 2/radius
+    elseif BackObstacle then        -- Obstacle behind
+        -- Turn away
+        LeftWheelVelocity = 0.5/radius
+        RightWheelVelocity = 2/radius
+    elseif sensorReading[1] then    -- Perimeter to the left
+        --Turn right
+        LeftWheelVelocity = 2/radius
+        RightWheelVelocity = 0.1/radius
+        --Shoot left snow
+        LeftPlowAngle = 0
+        if ObstacleFront then    -- Obstacle in front and perimeter on the left
+            --Turn Right
+            LeftWheelVelocity = 2/radius
+            RightWheelVelocity = -2/radius
+        end
+        if sensorReading[2] then    -- Perimeter on both sides
+            --Back up
+            LeftWheelVelocity = -2/radius
+            RightWheelVelocity =-2/radius
+        end
+    elseif sensorReading[3] then    -- Perimeter to the Right
+        --Turn left
+        LeftWheelVelocity = 0.1/radius
+        RightWheelVelocity = 2/radius
+        --Shoot right snow
+        RightPlowAngle = 0
+        if ObstacleFront then    -- Obstacle in front and perimeter on the right
+            --Turn Left
+            LeftWheelVelocity = 0
+            RightWheelVelocity = 2/radius
+        end
+    elseif sensorReading[2] then    -- Perimeter straight ahead
+        --Shoot snow
+        LeftPlowAngle = 0
+        RightPlowAngle = 0
+        RightWheelVelocity = 0
+        LeftWheelVelocity = (math.random(3))/radius
+    else                            -- No obstacles or perimeter
+        --Go forward
+        RightWheelVelocity = 2/radius
+        LeftWheelVelocity =2/radius
+    end
+    
+        
+    -- Side plow angles: 0 - Parked, 75 - Maximum
+    sim.setJointTargetPosition(RightPlow, RightPlowAngle *math.pi/180)
+    sim.setJointTargetPosition(LeftPlow, LeftPlowAngle *math.pi/180)
+
+    -- Update robot velocities
+    sim.setJointTargetVelocity(RightWheel, RightWheelVelocity)
+    sim.setJointTargetVelocity(LeftWheel, LeftWheelVelocity)
+    
+    
+end  
+
+function sysCall_sensing()
+-- put your sensing code here
+end
+
+function sysCall_cleanup()
+-- do some clean-up here
+end
+
+-- See the user manual or the available code snippets for additional callback functions and details
